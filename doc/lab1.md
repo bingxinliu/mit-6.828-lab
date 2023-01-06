@@ -1,5 +1,266 @@
 # Lab 1: Booting a PC
 
+# Lab1: Booting a PC
+
+- [ ] Exercise 1
+- [ ] Exercise 2
+- [ ] 
+
+
+## Introduction
+### Software Setup
+### Hand-In Procedure
+## Part 1: PC Bootstrap
+### Getting Started with x86 assembly
+---
+>Exercise 1. Familiarize yourself with the assembly language materials available on [the 6.828 reference page](https://pdos.csail.mit.edu/6.828/2018/reference.html). You don't have to read them now, but you'll almost certainly want to refer to some of this material when reading and writing x86 assembly.
+>
+>We do recommend reading the section "The Syntax" in [Brennan's Guide to Inline Assembly](http://www.delorie.com/djgpp/doc/brennan/brennan_att_inline_djgpp.html). It gives a good (and quite brief) description of the AT&T assembly syntax we'll be using with the GNU assembler in JOS.
+---
+### Simulating the x86
+### The PC's Physical Address Space
+```text
++------------------+  <- 0xFFFFFFFF (4GB)
+|      32-bit      |
+|  memory mapped   |
+|     devices      |
+|                  |
+/\/\/\/\/\/\/\/\/\/\
+
+/\/\/\/\/\/\/\/\/\/\
+|                  |
+|      Unused      |
+|                  |
++------------------+  <- depends on amount of RAM
+|                  |
+|                  |
+| Extended Memory  |
+|                  |
+|                  |
++------------------+  <- 0x00100000 (1MB)
+|     BIOS ROM     |
++------------------+  <- 0x000F0000 (960KB)
+|  16-bit devices, |
+|  expansion ROMs  |
++------------------+  <- 0x000C0000 (768KB)
+|   VGA Display    |
++------------------+  <- 0x000A0000 (640KB)
+|                  |
+|    Low Memory    |
+|                  |
++------------------+  <- 0x00000000
+```
+### The ROM BIOS
+---
+>Exercise 2. Use GDB's si (Step Instruction) command to trace into the ROM BIOS for a few more instructions, and try to guess what it might be doing. You might want to look at [Phil Storrs I/O Ports Description](http://web.archive.org/web/20040404164813/members.iweb.net.au/~pstorr/pcbook/book2/book2.htm), as well as other materials on the [6.828 reference materials page](https://pdos.csail.mit.edu/6.828/2018/reference.html). No need to figure out all the details - just the general idea of what the BIOS is doing first.
+---
+## Part 2: The Boot Loader
+When the BIOS finds a bootable floppy or hard disk, it loads the 512-byte boot sector into memory at physical addresses `0x7c00` through `0x7dff`, and then uses a `jmp` instruction to set the `CS:IP` to `0000:7c00`, passing control to the boot loader.
+
+---
+>Exercise 3. Take a look at the [lab tools guide](https://pdos.csail.mit.edu/6.828/2018/labguide.html), especially the section on GDB commands. Even if you're familiar with GDB, this includes some esoteric GDB commands that are useful for OS work.
+>
+>Set a breakpoint at address `0x7c00`, which is where the boot sector will be loaded. Continue execution until that breakpoint. Trace through the code in `boot/boot.S`, using the source code and the disassembly file `obj/boot/boot.asm` to keep track of where you are. Also use the `x/i` command in GDB to disassemble sequences of instructions in the boot loader, and compare the original boot loader source code with both the disassembly in `obj/boot/boot.asm` and GDB.
+>
+>Trace into bootmain() in boot/main.c, and then into readsect(). Identify the exact assembly instructions that correspond to each of the statements in readsect(). Trace through the rest of readsect() and back out into bootmain(), and identify the begin and end of the for loop that reads the remaining sectors of the kernel from the disk. Find out what code will run when the loop is finished, set a breakpoint there, and continue to that breakpoint. Then step through the remainder of the boot loader.
+---
+
+Be able to answer the following questions:
+-   At what point does the processor start executing 32-bit code? What exactly causes the switch from 16- to 32-bit mode?
+```asm
+0x7c2d: ljmp $0xb866,$0x87c32
+-> 32-bit
+0x7c32
+```
+
+-   What is the _last_ instruction of the boot loader executed, and what is the _first_ instruction of the kernel it just loaded?
+```asm
+0x7d63: call *0x10018
+```
+-   _Where_ is the first instruction of the kernel?
+```asm
+0x1000c
+```
+-   How does the boot loader decide how many sectors it must read in order to fetch the entire kernel from disk? Where does it find this information?
+```text
+Via reading ELF header Table, which contains the info of program segement header info. Within program header table, it contains the info about the length of one particular program header table. By reading all of lengthes of program segments, the boot loader then acknowledge how many sectors it has to read.
+```
+
+### Loading the Kernel
+---
+>Exercise 4. Read about programming with pointers in C. The best reference for the C language is _The C Programming Language_ by Brian Kernighan and Dennis Ritchie (known as 'K&R'). We recommend that students purchase this book (here is an [Amazon Link](http://www.amazon.com/C-Programming-Language-2nd/dp/0131103628/sr=8-1/qid=1157812738/ref=pd_bbs_1/104-1502762-1803102?ie=UTF8&s=books)) or find one of [MIT's 7 copies](http://library.mit.edu/F/AI9Y4SJ2L5ELEE2TAQUAAR44XV5RTTQHE47P9MKP5GQDLR9A8X-10422?func=item-global&doc_library=MIT01&doc_number=000355242&year=&volume=&sub_library=).
+>
+>Read 5.1 (Pointers and Addresses) through 5.5 (Character Pointers and Functions) in K&R. Then download the code for [pointers.c](https://pdos.csail.mit.edu/6.828/2018/labs/lab1/pointers.c), run it, and make sure you understand where all of the printed values come from. In particular, make sure you understand where the pointer addresses in printed lines 1 and 6 come from, how all the values in printed lines 2 through 4 get there, and why the values printed in line 5 are seemingly corrupted.
+>
+>There are other references on pointers in C (e.g., [A tutorial by Ted Jensen](https://pdos.csail.mit.edu/6.828/2018/readings/pointers.pdf) that cites K&R heavily), though not as strongly recommended.
+>
+>_Warning:_ Unless you are already thoroughly versed in C, do not skip or even skim this reading exercise. If you do not really understand pointers in C, you will suffer untold pain and misery in subsequent labs, and then eventually come to understand them the hard way. Trust us; you don't want to find out what "the hard way" is.
+
+Take particular note of the "VMA" (or _link address_) and the "LMA" (or _load address_) of the .text section. The load address of a section is the memory address at which that section should be loaded into memory.
+
+The link address of a section is the memory address from which the section expects to execute. The linker encodes the link address in the binary in various ways, such as when the code needs the address of a global variable, with the result that a binary usually won't work if it is executing from an address that it is not linked for. (It is possible to generate _position-independent_ code that does not contain any such absolute addresses. This is used extensively by modern shared libraries, but it has performance and complexity costs, so we won't be using it in 6.828.)
+
+---
+>Exercise 5. Trace through the first few instructions of the boot loader again and identify the first instruction that would "break" or otherwise do the wrong thing if you were to get the boot loader's link address wrong. Then change the link address in boot/Makefrag to something wrong, run make clean, recompile the lab with make, and trace into the boot loader again to see what happens. Don't forget to change the link address back and make clean again afterward!
+---
+```
+change from 0x7c00 to 0x8c00
+```
+
+---
+>Exercise 6. We can examine memory using GDB's x command. The [GDB manual](https://sourceware.org/gdb/current/onlinedocs/gdb/Memory.html) has full details, but for now, it is enough to know that the command x/_N_x _ADDR_ prints _N_ words of memory at _ADDR_. (Note that both 'x's in the command are lowercase.) _Warning_: The size of a word is not a universal standard. In GNU assembly, a word is two bytes (the 'w' in xorw, which stands for word, means 2 bytes).
+>
+>Reset the machine (exit QEMU/GDB and start them again). Examine the 8 words of memory at 0x00100000 at the point the BIOS enters the boot loader, and then again at the point the boot loader enters the kernel. Why are they different? What is there at the second breakpoint? (You do not really need to use QEMU to answer this question. Just think.)
+---
+
+
+## Part 3: The Kernel
+### Using virtual memory to work around position dependence
+---
+>Exercise 7. Use QEMU and GDB to trace into the JOS kernel and stop at the `movl %eax, %cr0`. Examine memory at `0x00100000` and at `0xf0100000`. Now, single step over that instruction using the stepi GDB command. Again, examine memory at `0x00100000` and at `0xf0100000`. Make sure you understand what just happened.
+>
+>What is the first instruction after the new mapping is established that would fail to work properly if the mapping weren't in place? Comment out the movl %eax, %cr0 in kern/entry.S, trace into it, and see if you were right. 
+---
+```shell
+(gdb) x/10x 0x00100000
+0x100000:       0x1badb002      0x00000000      0xe4524ffe      0x7205c766
+0x100010:       0x34000004      0x7000b812      0x220f0011      0xc0200fd8
+0x100020:       0x0100010d      0xc0220f80
+(gdb) x/10x 0xf0100000
+0xf0100000 <_start-268435468>:  0x00000000      0x00000000      0x00000000      0x00000000
+0xf0100010 <entry+4>:   0x00000000      0x00000000      0x00000000      0x00000000
+0xf0100020 <entry+20>:  0x00000000      0x00000000
+(gdb) si
+=> 0x100028:    mov    $0xf010002f,%eax
+0x00100028 in ?? ()
+(gdb) x/10x 0xf0100000
+0xf0100000 <_start-268435468>:  0x1badb002      0x00000000      0xe4524ffe      0x7205c766
+0xf0100010 <entry+4>:   0x34000004      0x7000b812      0x220f0011      0xc0200fd8
+0xf0100020 <entry+20>:  0x0100010d      0xc0220f80
+(gdb) x/10x 0x00100000
+0x100000:       0x1badb002      0x00000000      0xe4524ffe      0x7205c766
+0x100010:       0x34000004      0x7000b812      0x220f0011      0xc0200fd8
+0x100020:       0x0100010d      0xc0220f80
+```
+
+NOTE:
+	GDB is using virtual mm, `0x1bad002` is ELF magic code
+
+### Formatted Printing to the Console
+
+Read through `kern/printf.c`, `lib/printfmt.c`, and `kern/console.c`, and make sure you understand their relationship. It will become clear in later labs why printfmt.c is located in the separate lib directory.
+
+---
+>Exercise 8. We have omitted a small fragment of code - the code necessary to print octal numbers using patterns of the form "%o". Find and fill in this code fragment.
+---
+
+Be able to answer the following questions:
+1. Explain the interface between printf.c and console.c. Specifically, what function does console.c export? How is this function used by printf.c?
+	```text
+		kern/printf.c::cprintf()
+				-> kern/printf.c::vcprintf() // prvide *putch function pointer
+						-> lib/printfmt.c::vprintfmt()
+								-> Arg:putch -> /kern/printf.c::putch()
+										-> kern/console.c::cputchar()
+												-> kern/console.c::cons_putc()
+	```
+	
+	`static void putch(int ch, int *cnt)` is exported by console.c. 
+	the printf.c put it into the argument of  `vprintfmt()` in `lib/printfmt()`, which is called by `vcprintf()` in `kern/printf.c`
+   
+2. Explain the following from console.c:
+	```c
+    1      if (crt_pos >= CRT_SIZE) {
+    2              int i;
+    3              memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
+    4              for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
+    5                      crt_buf[i] = 0x0700 | ' ';
+    6              crt_pos -= CRT_COLS;
+    7      }
+	```
+    __Anser:__
+    if cursor? is out off the limit of CRT buffer size `CRT_SIZE`, copy the second line through the last line from the begining of the buffer, with the result that the new last line is ready to be cleared with `0x0700 | ' '` and output new contents.
+	
+3. For the following questions you might wish to consult the notes for Lecture 2. These notes cover GCC's calling convention on the x86.
+   
+   Trace the execution of the following code step-by-step:
+	```c
+    int x = 1, y = 3, z = 4;
+    cprintf("x %d, y %x, z %d\n", x, y, z);
+	```
+	- In the call to `cprintf()`, to what does `fmt` point? To what does `ap` point?
+	    ==Answer:==
+	    `fmt` points to the string `"x %d, y %x, z %d\n"`.
+	    `ap` points to the variable `x, y, z` in each time.
+	- List (in order of execution) each call to `cons_putc`, `va_arg`, and `vcprintf`. For `cons_putc`, list its argument as well. For `va_arg`, list what `ap` points to before and after the call. For `vcprintf` list the values of its two arguments.
+	  
+	
+4. Run the following code.
+```c
+	unsigned int i = 0x00646c72;
+	cprintf("H%x Wo%s", 57616, &i);
+```
+
+  What is the output? Explain how this output is arrived at in the step-by-step manner of the previous exercise. [Here's an ASCII table](http://web.cs.mun.ca/~michael/c/ascii-table.html) that maps bytes to characters.
+    
+  The output depends on that fact that the x86 is little-endian. If the x86 were instead big-endian what would you set `i` to in order to yield the same output? Would you need to change `57616` to a different value?
+    
+  [Here's a description of little- and big-endian](http://www.webopedia.com/TERM/b/big_endian.html) and [a more whimsical description](http://www.networksorcery.com/enp/ien/ien137.txt).
+
+  Answer:
+```shell
+	He110, World
+```
+
+5.  In the following code, what is going to be printed after `'y='`? (note: the answer is not a specific value.) Why does this happen?
+        cprintf("x=%d y=%d", 3);
+    
+6.  Let's say that GCC changed its calling convention so that it pushed arguments on the stack in declaration order, so that the last argument is pushed last. How would you have to change `cprintf` or its interface so that it would still be possible to pass it a variable number of arguments?
+
+
+
+
+
+# This is a test
+
+hello
+
+```plain
+I want some test
+```
+
+1. list
+   this is code?
+	   this is code?
+
+
+```
+add code block in list
+```
+
+	ok that is fine
+	so why
+
+this is aliagned
+
+1. this is a list
+   I use shift + enter to create this line
+	I use tab to create this line
+   I want some aligned paragraph
+   ```rust
+   I use shift + enter and then add '```' to create a block then everything messup
+	```
+	ok
+	That is fine
+	
+   
+   ```rust
+   I want some aligned code block
+```
+
+	I want some aligned paragraph
+```
+
 ## Part 3: The Kernel
 
 ### Formatted Printing to the Console
