@@ -42,10 +42,16 @@ i386_init(void)
 	// Lab 2 memory management initialization functions
 	mem_init();
 
-<<<<<<< HEAD
+    // === Lab 3 starting point ===
 	// Lab 3 user environment initialization functions
+    //debug
+    cprintf("env_init started\n");
 	env_init();
+    //debug
+    cprintf("env_init done\n");
 	trap_init();
+    //debug
+    cprintf("trap_init done\n");
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
@@ -57,11 +63,13 @@ i386_init(void)
 
 	// We only have one user environment for now, so just run it.
 	env_run(&envs[0]);
-=======
+    //debug
+    cprintf("env_run done\n");
+    
+    // === Lab 2 remaining parts
     // Drop into the kernel monitor.
 	while (1)
 		monitor(NULL);
->>>>>>> lab2
 }
 
 

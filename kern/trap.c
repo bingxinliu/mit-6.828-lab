@@ -1,3 +1,5 @@
+#include "inc/memlayout.h"
+#include "inc/trap.h"
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
@@ -58,7 +60,6 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
-
 void
 trap_init(void)
 {
@@ -66,6 +67,69 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 
+    void _DIVIDE   ();
+    void _DEBUG    ();  
+    void _NMI      ();  
+    void _BRKPT    ();  
+    void _OFLOW    ();  
+    void _BOUND    ();  
+    void _ILLOP    ();  
+    void _DEVICE   ();  
+    void _DBLFLT   ();  
+
+    void _TSS      ();
+    void _SEGNP    ();  
+    void _STACK    ();  
+    void _GPFLT    ();  
+    void _PGFLT    ();  
+
+                
+    void _FPERR    ();  
+    void _ALIGN    ();  
+    void _MCHK     ();  
+    void _SIMDERR  ();  
+
+    void _SYSCALL  ();  
+    void _DEFAULT  ();  
+
+    void _TIMER    ();   
+    void _KBD      ();   
+    void _SERIAL   ();   
+    void _SPURIOUS ();   
+    void _IDE      ();   
+    void _ERROR    ();   
+    
+    SETGATE(idt[T_DIVIDE  ], 0, GD_KT, &_DIVIDE  , 0);
+    SETGATE(idt[T_DEBUG   ], 0, GD_KT, &_DEBUG   , 0);
+    SETGATE(idt[T_NMI     ], 0, GD_KT, &_NMI     , 0);
+    SETGATE(idt[T_BRKPT   ], 0, GD_KT, &_BRKPT   , 0);
+    SETGATE(idt[T_OFLOW   ], 0, GD_KT, &_OFLOW   , 0);
+    SETGATE(idt[T_BOUND   ], 0, GD_KT, &_BOUND   , 0);
+    SETGATE(idt[T_ILLOP   ], 0, GD_KT, &_ILLOP   , 0);
+    SETGATE(idt[T_DEVICE  ], 0, GD_KT, &_DEVICE  , 0);
+    SETGATE(idt[T_DBLFLT  ], 0, GD_KT, &_DBLFLT  , 0);
+                                 
+    SETGATE(idt[T_TSS     ], 0, GD_KT, &_TSS     , 0);
+    SETGATE(idt[T_SEGNP   ], 0, GD_KT, &_SEGNP   , 0);
+    SETGATE(idt[T_STACK   ], 0, GD_KT, &_STACK   , 0);
+    SETGATE(idt[T_GPFLT   ], 0, GD_KT, &_GPFLT   , 0);
+    SETGATE(idt[T_PGFLT   ], 0, GD_KT, &_PGFLT   , 0);
+                                  
+    SETGATE(idt[T_FPERR   ], 0, GD_KT, &_FPERR   , 0);
+    SETGATE(idt[T_ALIGN   ], 0, GD_KT, &_ALIGN   , 0);
+    SETGATE(idt[T_MCHK    ], 0, GD_KT, &_MCHK    , 0);
+    SETGATE(idt[T_SIMDERR ], 0, GD_KT, &_SIMDERR , 0);
+                                               
+    SETGATE(idt[T_SYSCALL ], 0, GD_KT, _SYSCALL , 0);
+    // SETGATE(idt[T_DEFAULT ], 0, GD_KT, _DEFAULT , 0);
+                                               
+    SETGATE(idt[IRQ_OFFSET+IRQ_TIMER   ], 0, GD_KT, &_TIMER   , 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_KBD     ], 0, GD_KT, &_KBD     , 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL  ], 0, GD_KT, &_SERIAL  , 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 0, GD_KT, &_SPURIOUS, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_IDE     ], 0, GD_KT, &_IDE     , 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_ERROR   ], 0, GD_KT, &_ERROR   , 0);
+                
 	// Per-CPU setup 
 	trap_init_percpu();
 }
