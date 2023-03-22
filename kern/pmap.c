@@ -264,7 +264,7 @@ mem_init(void)
 	check_page_installed_pgdir();
 
 	// boot_map_region(kern_pgdir, 0, KERNBASE, 0, PTE_U);
-	cprintf("sizeof(PageInfo) == %d, sizeof(uint16_t) == %d, sizeof(struct PageInfo*) == %d", sizeof(struct PageInfo), sizeof(uint16_t), sizeof(struct PageInfo*));
+	// cprintf("sizeof(PageInfo) == %d, sizeof(uint16_t) == %d, sizeof(struct PageInfo*) == %d", sizeof(struct PageInfo), sizeof(uint16_t), sizeof(struct PageInfo*));
 }
 
 // --------------------------------------------------------------
@@ -633,6 +633,18 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+    uint32_t start = ROUNDDOWN((uint32_t) va, PGSIZE);
+    uint32_t end = ROUNDUP((uint32_t) va + len, PGSIZE);
+
+    for (;start < end; start += PGSIZE)
+    {
+        pte_t * pte = pgdir_walk(env->env_pgdir, (void*) start, 0);
+        if (start >= ULIM || !pte || !(*pte & PTE_P) || ((*pte & perm) != perm))
+        {
+            user_mem_check_addr = ( start < (uint32_t)va ? (uint32_t)va : start );
+            return -E_FAULT;
+        }
+    }
 
 	return 0;
 }

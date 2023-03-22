@@ -526,6 +526,7 @@ env_run(struct Env *e)
     curenv->env_runs++;
     lcr3(PADDR(e->env_pgdir));
     assert(curenv == e);
+    //assert(curenv->env_tf.tf_eip == 0);
     env_pop_tf(&curenv->env_tf);
 
 	// panic("env_run not yet implemented");

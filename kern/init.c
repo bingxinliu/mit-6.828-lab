@@ -45,13 +45,13 @@ i386_init(void)
     // === Lab 3 starting point ===
 	// Lab 3 user environment initialization functions
     //debug
-    cprintf("env_init started\n");
+    //cprintf("env_init started\n");
 	env_init();
     //debug
-    cprintf("env_init done\n");
+    //cprintf("env_init done\n");
 	trap_init();
     //debug
-    cprintf("trap_init done\n");
+    //cprintf("trap_init done\n");
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!

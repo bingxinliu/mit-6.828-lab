@@ -1,4 +1,7 @@
+#include "inc/error.h"
 #include "inc/memlayout.h"
+#include "inc/stdio.h"
+#include "inc/syscall.h"
 #include "inc/trap.h"
 #include <inc/mmu.h>
 #include <inc/x86.h>
@@ -102,7 +105,7 @@ trap_init(void)
     SETGATE(idt[T_DIVIDE  ], 0, GD_KT, &_DIVIDE  , 0);
     SETGATE(idt[T_DEBUG   ], 0, GD_KT, &_DEBUG   , 0);
     SETGATE(idt[T_NMI     ], 0, GD_KT, &_NMI     , 0);
-    SETGATE(idt[T_BRKPT   ], 0, GD_KT, &_BRKPT   , 0);
+    SETGATE(idt[T_BRKPT   ], 0, GD_KT, &_BRKPT   , 3);
     SETGATE(idt[T_OFLOW   ], 0, GD_KT, &_OFLOW   , 0);
     SETGATE(idt[T_BOUND   ], 0, GD_KT, &_BOUND   , 0);
     SETGATE(idt[T_ILLOP   ], 0, GD_KT, &_ILLOP   , 0);
@@ -120,7 +123,7 @@ trap_init(void)
     SETGATE(idt[T_MCHK    ], 0, GD_KT, &_MCHK    , 0);
     SETGATE(idt[T_SIMDERR ], 0, GD_KT, &_SIMDERR , 0);
                                                
-    SETGATE(idt[T_SYSCALL ], 0, GD_KT, _SYSCALL , 0);
+    SETGATE(idt[T_SYSCALL ], 1, GD_KT, &_SYSCALL , 3);
     // SETGATE(idt[T_DEFAULT ], 0, GD_KT, _DEFAULT , 0);
                                                
     SETGATE(idt[IRQ_OFFSET+IRQ_TIMER   ], 0, GD_KT, &_TIMER   , 0);
@@ -208,6 +211,22 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+    switch (tf->tf_trapno) {
+        case T_PGFLT:
+            page_fault_handler(tf);
+            return;
+        case T_BRKPT:
+            while (1) {
+                monitor(tf);
+            }
+            return;
+        case T_SYSCALL:
+            tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+            // debug
+            //cprintf("eip: %x\n", tf->tf_eip);
+            return;
+
+    }
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -233,9 +252,13 @@ trap(struct Trapframe *tf)
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
 
+    // debug
+	//print_trapframe(tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);
+        // debug
+        //panic("trap from user");
 
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
@@ -269,6 +292,8 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+    if ((tf->tf_cs & 3) == 0)
+        panic("Error: kernel page fault\n");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
