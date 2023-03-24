@@ -404,6 +404,23 @@ page_init(void)
 		page_free_list = page;
 	}
 
+    // lab4 mark the page at MPENTRY_PADDR as used
+    struct PageInfo* mpentry_page = pa2page(MPENTRY_PADDR);
+    assert(mpentry_page != page_free_list);
+    for (struct PageInfo* p = page_free_list; p != NULL; p = p->pp_link)
+    {
+        if (p->pp_link == mpentry_page) {
+            p->pp_link = mpentry_page->pp_link;
+            mpentry_page->pp_link = NULL;
+        }
+    }
+    // debug
+    assert(mpentry_page->pp_link == NULL);
+    for (struct PageInfo* p = page_free_list; p != NULL; p = p->pp_link)
+    {
+        assert(p != mpentry_page);
+    }
+
 }
 
 //
@@ -675,6 +692,9 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
+    if (base + size < base || base + size > MMIOLIM)
+        panic("memory overflow in mmio_map_region");
+    boot_map_region(kern_pgdir, base, ROUNDUP(size, PGSIZE), pa, PTE_W | PTE_PCD | PTE_PWT);
 	panic("mmio_map_region not implemented");
 }
 
