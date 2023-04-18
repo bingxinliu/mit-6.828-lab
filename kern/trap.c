@@ -3,6 +3,7 @@
 #include "inc/stdio.h"
 #include "inc/syscall.h"
 #include "inc/trap.h"
+#include "inc/types.h"
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
@@ -130,7 +131,7 @@ trap_init(void)
     SETGATE(idt[T_MCHK    ], 0, GD_KT, &_MCHK    , 0);
     SETGATE(idt[T_SIMDERR ], 0, GD_KT, &_SIMDERR , 0);
                                                
-    SETGATE(idt[T_SYSCALL ], 1, GD_KT, &_SYSCALL , 3);
+    SETGATE(idt[T_SYSCALL ], 0, GD_KT, &_SYSCALL , 3);
     // SETGATE(idt[T_DEFAULT ], 0, GD_KT, _DEFAULT , 0);
                                                
     SETGATE(idt[IRQ_OFFSET+IRQ_TIMER   ], 0, GD_KT, &_TIMER   , 0);
@@ -175,18 +176,18 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
-	ts.ts_iomb = sizeof(struct Taskstate);
+	thiscpu->cpu_ts.ts_esp0 = (uint32_t)percpu_kstacks[thiscpu->cpu_id] + KSTKSIZE;
+	thiscpu->cpu_ts.ts_ss0 = GD_KD;
+	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
+	gdt[(GD_TSS0 >> 3) + thiscpu->cpu_id] = SEG16(STS_T32A, (uint32_t) (&thiscpu->cpu_ts),
 					sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + thiscpu->cpu_id].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(GD_TSS0 + (thiscpu->cpu_id << 3));
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -258,6 +259,7 @@ trap_dispatch(struct Trapframe *tf)
             //cprintf("eip: %x\n", tf->tf_eip);
             return;
 
+
     }
 
 	// Handle spurious interrupts
@@ -272,6 +274,12 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+    if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER)
+    {
+        lapic_eoi();
+        sched_yield();
+        return;
+    }
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -305,7 +313,7 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
     // >>> lab3 remaining parts
-	cprintf("Incoming TRAP frame at %p\n", tf);
+	// cprintf("Incoming TRAP frame at %p\n", tf);
 
     // // debug
 	// //print_trapframe(tf);
@@ -316,6 +324,7 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+        lock_kernel();
 		assert(curenv);
         // debug
         //panic("trap from user");
@@ -399,6 +408,41 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+    int errno;
+    struct UTrapframe *utf;
+    if (curenv->env_pgfault_upcall)
+    {
+        //debug
+        //cprintf("esp=%08x\n", tf->tf_esp);
+        //cprintf("fault_va = [%x]\n", fault_va);
+        //cprintf("$eip = [%x]\n", tf->tf_eip);
+        if (tf->tf_esp < USTACKTOP)
+        {
+            utf = (struct UTrapframe*) (UXSTACKTOP - sizeof(struct UTrapframe));
+        }
+        else if (tf->tf_esp >=  UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP)
+        {
+            *(uint32_t*) (tf->tf_esp - 4) = 0;
+            utf = (struct UTrapframe*) (tf->tf_esp - 4 - sizeof(struct UTrapframe));
+        } else
+        {
+            panic("page_fault_handler: Invalid %esp in trapframe");
+        }
+
+        user_mem_assert(curenv, (void*) utf, sizeof(struct UTrapframe), PTE_P | PTE_W | PTE_U);
+
+        utf->utf_esp = tf->tf_esp;
+        utf->utf_eflags = tf->tf_eflags;
+        utf->utf_eip = tf->tf_eip;
+        utf->utf_regs = tf->tf_regs;
+        utf->utf_err = tf->tf_err;
+        utf->utf_fault_va = fault_va;
+
+        tf->tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
+        tf->tf_esp = (uintptr_t) utf;
+
+        env_run(curenv);
+    }
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
