@@ -7,6 +7,7 @@
 #include <inc/string.h>
 
 #include "fs.h"
+#include "inc/fs.h"
 
 
 #define debug 0
@@ -214,7 +215,16 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
-	return 0;
+    // open file first
+    struct OpenFile *o;
+    int r;
+    if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) return r;
+
+
+    if ((r = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset)) < 0)
+        return r;
+    o->o_fd->fd_offset += r;
+	return r;
 }
 
 
@@ -229,7 +239,31 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
-	panic("serve_write not implemented");
+	// panic("serve_write not implemented");
+    struct OpenFile *o;
+    int r;
+
+    if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+    {
+        // panic("serve_write: openfile_lookup failed: %e\n", r);
+        return r;
+    }
+
+    if (o->o_fd->fd_offset + req->req_n < o->o_fd->fd_offset || o->o_fd->fd_offset + req->req_n > MAXFILESIZE)
+        panic("server_write: overflow max file siz\n");
+    // needless b/c file_write do this for us
+    // if (o->o_fd->fd_offset + req->req_n > o->o_file->f_size)
+    // {
+    //     if ((r = file_set_size(o, o->o_fd->fd_offset + req->req_n)) < r)    return r;
+    // }
+
+    if ((r = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset)) < 0)
+    {
+        // panic("serve_write: file_write failed: %e\n", r);
+        return r;
+    }
+    o->o_fd->fd_offset += r;
+    return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the

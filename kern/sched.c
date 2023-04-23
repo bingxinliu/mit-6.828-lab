@@ -1,3 +1,6 @@
+#include "inc/env.h"
+#include "inc/stdio.h"
+#include "kern/cpu.h"
 #include <inc/assert.h>
 #include <inc/x86.h>
 #include <kern/spinlock.h>
@@ -30,9 +33,83 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+    int end_idx, i;
+    end_idx = i = 0;
+    idle = NULL;
+    if (curenv != NULL)
+    {
+        // i is the next env of current env
+        i = curenv - envs + 1;
+        end_idx = curenv - envs;
+    }
+
+    for (; i < NENV; ++i)
+    {
+        if (envs[i].env_status == ENV_RUNNABLE)
+        {
+            idle = envs + i;
+            break;
+        }
+    }
+
+    if (!idle)
+    {
+        for (i = 0; i < end_idx; ++i)
+        {
+            if (envs[i].env_status == ENV_RUNNABLE)
+            {
+                idle = envs + i;
+                break;
+            }
+        }
+    }
+
+    if (!idle) 
+    {
+        // for (i = 0; i < NENV; ++i)
+        // {
+        //     if (envs[i].env_cpunum == thiscpu->cpu_id && envs[i].env_status == ENV_RUNNING)
+        //     {
+        //         //cprintf("CPU: %d ENV: %d is running\n", envs[i].env_cpunum, ENVX(envs[i].env_id));
+        //         assert(idle == NULL);
+        //         idle = envs + i;
+        //         break;
+        //     }
+        // }
+        if (curenv && curenv->env_status == ENV_RUNNING)
+            idle = curenv;
+    }
+
+    if (idle)   env_run(idle);
 
 	// sched_halt never returns
 	sched_halt();
+
+//     idle = curenv;
+//     int idle_envid = (idle == NULL) ? -1 : ENVX(idle->env_id);
+//     int i;
+// 
+//     // search envs after idle
+//     for (i = idle_envid + 1; i < NENV; i++) {
+//         if (envs[i].env_status == ENV_RUNNABLE) {
+//             env_run(&envs[i]);
+//         }
+//     }
+// 
+//     // find from 1st env if not found
+//     for (i = 0; i < idle_envid; i++) {;
+//         if (envs[i].env_status == ENV_RUNNABLE) {
+//             env_run(&envs[i]);
+//         }
+//     }
+// 
+//     // if still not found, try idle
+//     if(idle != NULL && idle->env_status == ENV_RUNNING) {
+//         env_run(idle);
+//     }
+// 
+//     // sched_halt never returns
+//     sched_halt();
 }
 
 // Halt this CPU when there is nothing to do. Wait until the
@@ -76,7 +153,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

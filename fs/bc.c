@@ -1,5 +1,8 @@
 
 #include "fs.h"
+#include "inc/lib.h"
+#include "inc/mmu.h"
+#include "inc/types.h"
 
 // Return the virtual address of this disk block.
 void*
@@ -48,6 +51,13 @@ bc_pgfault(struct UTrapframe *utf)
 	// the disk.
 	//
 	// LAB 5: you code here:
+    addr = ROUNDDOWN(addr, PGSIZE);
+    if ((r = sys_page_alloc(thisenv->env_id, addr, PTE_P | PTE_U | PTE_W)) < 0)
+        panic("bc_pgfault: can not alloc page\n");
+
+    if ((r = ide_read(((uint32_t) addr - DISKMAP) / SECTSIZE, addr, PGSIZE / SECTSIZE)))
+        panic("bc_pgfault: cannot read sectors from disk");
+
 
 	// Clear the dirty bit for the disk block page since we just read the
 	// block from disk
@@ -77,7 +87,20 @@ flush_block(void *addr)
 		panic("flush_block of bad va %08x", addr);
 
 	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+    int errno;
+
+    if (!va_is_mapped(ROUNDDOWN(addr, PGSIZE))) return;
+
+    if (!va_is_dirty(ROUNDDOWN(addr, PGSIZE)))  return;
+
+    if ((errno = ide_write(((uint32_t) addr - DISKMAP) / SECTSIZE, ROUNDDOWN(addr, PGSIZE), PGSIZE / SECTSIZE)) < 0)
+        panic("flush_block: cannot flush block %e\n", errno);
+
+    if ((errno = sys_page_map(0, ROUNDDOWN(addr, PGSIZE), 0, ROUNDDOWN(addr, PGSIZE), PTE_SYSCALL)))
+        panic("flush_block: cannot clear the dirty bit %e\n", errno);
+
+    return;
+	// panic("flush_block not implemented");
 }
 
 // Test that the block cache works, by smashing the superblock and

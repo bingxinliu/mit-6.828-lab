@@ -1,3 +1,5 @@
+#include "inc/assert.h"
+#include "inc/mmu.h"
 #include <inc/fs.h>
 #include <inc/string.h>
 #include <inc/lib.h>
@@ -141,7 +143,20 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
 	// LAB 5: Your code here
-	panic("devfile_write not implemented");
+	// panic("devfile_write not implemented");
+    int r;
+
+    if(n > PGSIZE - (sizeof(int) + sizeof(size_t)))
+        panic("devfile_write: content too large\n");
+
+    fsipcbuf.write.req_fileid = fd->fd_file.id;
+    fsipcbuf.write.req_n = n;
+    memmove(fsipcbuf.write.req_buf, buf, n);
+
+    if ((r = fsipc(FSREQ_WRITE, NULL)) < 0) return r;
+    // assert(r <= n);
+    // assert(r <= PGSIZE);
+    return r;
 }
 
 static int
