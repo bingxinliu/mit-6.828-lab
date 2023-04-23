@@ -78,6 +78,10 @@ duppage(envid_t envid, unsigned pn)
     if (uvpt[pn] & PTE_W || uvpt[pn] & PTE_COW)
         perm |= PTE_COW;
 
+    if (uvpt[pn] & PTE_SHARE)
+    {
+        return sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), uvpt[pn] & PTE_SYSCALL);
+    }
     r = sys_page_map(0, (void*) (pn * PGSIZE), envid, (void*) (pn * PGSIZE), perm); 
     if (r != 0) return  r;
 

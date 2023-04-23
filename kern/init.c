@@ -1,5 +1,6 @@
 /* See COPYRIGHT for copyright information. */
 
+#include "inc/env.h"
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
@@ -77,6 +78,9 @@ i386_init(void)
 
     // lab5 added from origin
 	ENV_CREATE(user_icode, ENV_TYPE_USER);
+
+    // lab5 exercise7
+    // ENV_CREATE(user_spawnhello, ENV_TYPE_USER);
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.

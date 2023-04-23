@@ -1,3 +1,4 @@
+#include "inc/mmu.h"
 #include <inc/lib.h>
 #include <inc/elf.h>
 
@@ -302,6 +303,39 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+    int r;
+    for (uint32_t addr = 0; addr < (UTOP - 2*PGSIZE); addr += PGSIZE)
+    {
+        if ((uvpd[PDX(addr)] & PTE_P)
+                && (uvpt[PGNUM(addr)] & PTE_P)
+                && (uvpt[PGNUM(addr)] & PTE_SHARE))
+        {
+            if ((r = sys_page_map(0, (void*) addr, child, (void*) addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)
+            {
+                panic("copy_shared_pages: can not duppage with addr: [%x] addr and errno: %e\n", addr, r);
+            }
+                // return r;
+        }
+    }
+    // extern volatile pde_t uvpd[];
+    // extern volatile pte_t uvpt[];
+    // int r;
+    // for (uintptr_t va = 0; va < UTOP;) {
+    //     if ((uvpd[va >> PDXSHIFT] & PTE_P) == 0) {    // Page table not mapped.
+    //         va += NPTENTRIES * PGSIZE;
+    //         continue;
+    //     }
+    //     int perm = uvpt[va >> PTXSHIFT] & PTE_SYSCALL;
+    //     if ((perm & PTE_P) == 0) {    // Page not mapped.
+    //         va += PGSIZE;
+    //         continue;
+    //     }
+    //     if (perm & PTE_SHARE) {
+    //         if ((r = sys_page_map(thisenv->env_id, (void *)va, child, (void *)va, perm)) < 0)
+    //             return r;
+    //     }
+    //     va += PGSIZE;
+    // }
 	return 0;
 }
 
