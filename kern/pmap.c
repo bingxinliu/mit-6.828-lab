@@ -764,6 +764,23 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 	}
 }
 
+//
+// Lab6 added by lbx:
+// kmalloc: alloc enough mm
+// void*
+// kmalloc(uint32_t size)
+// {
+//     struct PageInfo *pp = page_free_list;
+//     uint32_t free_size = 0;
+//     while(pp)
+//     {
+//         free_size += PGSIZE;
+//         pp = pp->pp_link;
+//     }
+//     if (free_size < size) return NULL;
+// 
+// }
+
 
 // --------------------------------------------------------------
 // Checking functions.

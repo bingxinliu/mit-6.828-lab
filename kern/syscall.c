@@ -4,8 +4,10 @@
 #include "inc/env.h"
 #include "inc/memlayout.h"
 #include "inc/mmu.h"
+#include "inc/ns.h"
 #include "inc/stdio.h"
 #include "inc/types.h"
+#include "kern/e1000.h"
 #include <inc/x86.h>
 #include <inc/error.h>
 #include <inc/string.h>
@@ -411,6 +413,10 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
     dst_env->env_ipc_value = value;
     dst_env->env_status = ENV_RUNNABLE;
 
+    // debug
+    // if (value == NSREQ_OUTPUT)
+    //     cprintf("ipc_try_send: send a pkt[NSREQ_OUTPUT]\n");
+
     return 0;
 	// panic("sys_ipc_try_send not implemented");
 }
@@ -460,6 +466,20 @@ sys_time_msec(void)
 	// panic("sys_time_msec not implemented");
 }
 
+static int
+sys_net_send(char* buf, uint32_t size)
+{
+    user_mem_assert(curenv, buf, size, 0);
+    return e1000_send(buf, size);
+}
+
+static int
+sys_net_receive(char* buf, uint32_t size)
+{
+    user_mem_assert(curenv, buf, size, 0);
+    return e1000_receive(buf, size);
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -503,6 +523,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             return sys_env_set_trapframe((envid_t) a1, (struct Trapframe*) a2);
         case SYS_time_msec:
             return sys_time_msec();
+        case SYS_net_send:
+            return sys_net_send((char*) a1, (uint32_t) a2);
+        case SYS_net_receive:
+            return sys_net_receive((char*)a1, (uint32_t) a2);
         case NSYSCALLS:
             cprintf("Error: syscall %d has not implemented\n", syscallno);
 	default:

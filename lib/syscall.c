@@ -1,5 +1,6 @@
 // System call stubs.
 
+#include "inc/types.h"
 #include <inc/syscall.h>
 #include <inc/lib.h>
 
@@ -121,4 +122,16 @@ unsigned int
 sys_time_msec(void)
 {
 	return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
+}
+
+int
+sys_net_send(char* buf, uint32_t size)
+{
+    return syscall(SYS_net_send, 0, (uint32_t)buf, size, 0, 0, 0);
+}
+
+int
+sys_net_receive(char* buf, uint32_t size)
+{
+    return syscall(SYS_net_receive, 0, (uint32_t)buf, size, 0, 0, 0);
 }
