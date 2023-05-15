@@ -78,6 +78,27 @@ send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
 	panic("send_data not implemented");
+    char buf[256];
+    int rl, wl; 
+    rl = wl = -1;
+    while (1)
+    {
+        rl = readn(fd, buf, 256);
+        if ( rl < 0 )
+        {
+            cprintf("HTTPD: send data read error: %e\n", rl);
+            return rl;
+        }
+        wl = write(fd, buf, rl);
+        if ( wl < 0 )
+        {
+            cprintf("HTTPD: send data write error: %e\n", wl);
+            return wl;
+        }
+        assert( wl == rl );
+        if ( rl < 256 ) break;
+    }
+    return 0;
 }
 
 static int
@@ -224,6 +245,48 @@ send_file(struct http_request *req)
 
 	// LAB 6: Your code here.
 	panic("send_file not implemented");
+    // extern union Fsipc fsipcbuf;
+    // envid_t fsenv;
+
+    // strcpy(fsipcbuf.open.req_path, req->url);
+    // fsipcbuf.open.req_omode = O_RDONLY;
+
+    // fsenv = ipc_find_env(ENV_TYPE_FS);
+    // ipc_send(fsenv, FSREQ_OPEN, &fsipcbuf, PTE_P | PTE_U);
+    // r = ipc_recv(fsenv, )
+    struct Stat fd_stat_buf;
+
+    if ((fd = open(req->url, O_RDONLY)) < 0)
+    {
+        if ((r = send_error(req, 404)) < 0)
+        {
+            cprintf("HTTPD: can not open file and send 404 page [%e]\n", r);
+            return r;
+        }
+        goto end;
+    }
+
+    if ((r = fstat(fd, &fd_stat_buf)) < 0)
+    {
+        if ((r = send_error(req, 404)) < 0)
+        {
+            cprintf("HTTPD: can not get file state and send 404 page [%e]\n", r);
+            return r;
+        }
+        goto end;
+    }
+
+    if (fd_stat_buf.st_isdir)
+    {
+        if ((r = send_error(req, 404)) < 0)
+        {
+            cprintf("HTTPD: %s is dir and send 404 page [%e]\n", fd_stat_buf.st_name, r);
+            return r;
+        }
+        goto end;
+    }
+
+    file_size = fd_stat_buf.st_size;
 
 	if ((r = send_header(req, 200)) < 0)
 		goto end;
