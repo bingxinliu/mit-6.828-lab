@@ -77,7 +77,7 @@ static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	panic("send_data not implemented");
+	// panic("send_data not implemented");
     char buf[256];
     int rl, wl; 
     rl = wl = -1;
@@ -89,7 +89,7 @@ send_data(struct http_request *req, int fd)
             cprintf("HTTPD: send data read error: %e\n", rl);
             return rl;
         }
-        wl = write(fd, buf, rl);
+        wl = write(req->sock, buf, rl);
         if ( wl < 0 )
         {
             cprintf("HTTPD: send data write error: %e\n", wl);
@@ -244,7 +244,7 @@ send_file(struct http_request *req)
 	// set file_size to the size of the file
 
 	// LAB 6: Your code here.
-	panic("send_file not implemented");
+	// panic("send_file not implemented");
     // extern union Fsipc fsipcbuf;
     // envid_t fsenv;
 
